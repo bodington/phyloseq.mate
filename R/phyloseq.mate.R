@@ -287,7 +287,7 @@ phyloseq_write_dataset <- function(ps,
     names(f.onames) <- paste0(">", phyloseq::taxa_names(ps))
   }
   #generate asv table formatted for biom generation
-  asv_tab <- format_asv_table(ps)
+  asv_tab <- .format_asv_table(ps)
   suppressWarnings(asv_tab <- as.matrix(asv_tab))
   cb <- as.matrix(cbind(rownames(asv_tab), asv_tab))
   rcb <- as.matrix(rbind(colnames(cb), cb))
@@ -396,7 +396,7 @@ phyloseq_write_dataset_biom <- function(ps,
   #generate biom file
   suppressWarnings(
     ps.b <- biomformat::make_biom(
-      data = format_asv_table(ps),
+      data = .format_asv_table(ps),
       sample_metadata = as.data.frame(phyloseq::sample_data(ps)),
       observation_metadata = as.data.frame(phyloseq::tax_table(ps)),
       matrix_element_type = "int"
@@ -426,7 +426,10 @@ phyloseq_write_dataset_biom <- function(ps,
 }
 
 #' Formats the sequence table from a phyloseq object
-format_asv_table <- function(ps) {
+#' @description Formats the sequence table from a phyloseq object to a matrix
+#' for export to other formats.
+#' @keywords internal
+.format_asv_table <- function(ps) {
   if (as.logical(class(phyloseq::otu_table(ps))[1] == "otu_table") &&
       as.logical(taxa_are_rows(phyloseq::otu_table(ps)) == TRUE)) {
     asv_tab <- as.matrix(phyloseq::otu_table(ps))
@@ -436,99 +439,117 @@ format_asv_table <- function(ps) {
   return(asv_tab)
 }
 
-#' Replace missing taxonomy in a phyloseq object
-phyloseq_taxonomy_imputation <- function(ps,
-                                         unknown_taxon = "_unidentified",
-                                         unknown_sp = " sp",
-                                         make_unique = FALSE,
-                                         addmaxrank = FALSE) {
-  ## If input is of class 'phyloseq'
-  inp_class <- class(ps)
-  if ("phyloseq" %in% inp_class || "taxonomyTable" %in% inp_class) {
-    if (is.null(phyloseq::tax_table(ps, errorIfNULL = F))) {
-      stop("Error: taxonomy table slot is empty in the input data.\n")
-    }
-    x <-
-      as.data.frame(phyloseq::tax_table(ps), stringsAsFactors = F)
-  } else {
-    stop("Error: input data should be of class `phyloseq` or `taxonomyTable`")
-  }
-  ## Function to replace NAs with higher taxa names + unident string
-  replace_col <- function(x,
-                          col_num = 2,
-                          unident = "unidentified") {
-    nas <- is.na(x[, col_num])
-    if (any(nas) == FALSE) {
-      return(x)              # no missing values
-    } else {
-      ## which values to replace
-      to_repl <- which(nas)
-      if (col_num == 1) {
-        x[to_repl, col_num] <- unident
-      } else {
-        x[to_repl, col_num] <-
-          paste(x[to_repl, col_num - 1], unident, sep = "")
+#'@title Pairwise multilevel comparison using adonis
+#'
+#'@description This is a wrapper function for multilevel pairwise comparison
+#' using adonis() from package 'vegan'. The function returns adjusted p-values using p.adjust().
+#'
+#'@param x Data frame (the community table), or "dist" object (user-supplied distance matrix).
+#'
+#'@param factors Vector (a column or vector with the levels to be compared pairwise).
+#'
+#'@param sim.function Function used to calculate the similarity matrix,
+#' one of 'daisy' or 'vegdist' default is 'vegdist'. Ignored if x is a distance matrix.
+#'
+#'@param sim.method Similarity method from daisy or vegdist, default is 'bray'. Ignored if x is a distance matrix.
+#'
+#'@param p.adjust.m The p.value correction method, one of the methods supported by p.adjust(),
+#' default is 'bonferroni'.
+#'
+#'@param reduce String. Restrict comparison to pairs including these factors. If more than one factor, separate by pipes like  reduce = 'setosa|versicolor'
+#'
+#'@param perm The number of permutations.
+#'
+#'@return Table with the pairwise factors, Df, SumsOfSqs, F-values, R^2, p.value and adjusted p.value.
+#'
+#'@author Pedro Martinez Arbizu & Sylvain Monteux
+#'
+#'@examples
+#' data(iris)
+#' pairwise_adonis(iris[,1:4],iris$Species)
+#'
+#'
+#'#similarity euclidean from vegdist and holm correction
+#' pairwise_adonis(x=iris[,1:4],factors=iris$Species,sim.function='vegdist',
+#' sim.method='euclidian',p.adjust.m='holm')
+#'
+#'#identical example using a distance matrix as an input
+#' dist_matrix=vegdist(iris[,1:4],method="euclidean")
+#' pairwise_adonis(dist_matrix,factors=iris$Species,
+#' p.adjust.m='holm')
+#'
+#'#similarity manhattan from daisy and bonferroni correction
+#' pairwise_adonis(x=iris[,1:4],factors=iris$Species,sim.function='daisy',
+#' sim.method='manhattan',p.adjust.m='bonferroni')
+#'
+#'#Restrict comparison to only some factors
+#'pairwise_adonis(iris[,1:4],iris$Species, reduce='setosa')
+#'
+#'#for more than one factor separate by pipes
+#'pairwise_adonis(iris[,1:4],iris$Species, reduce='setosa|versicolor')
+#'
+#'
+#'@export pairwise_adonis
+#'@importFrom stats p.adjust
+#'@importFrom utils combn
+#'@importFrom vegan adonis adonis2 vegdist
+#'@importFrom cluster daisy
+pairwise_adonis <- function(x,factors, sim.function = 'vegdist', sim.method = 'bray', p.adjust.m ='bonferroni',reduce=NULL,perm=999)
+{
+
+  co <- combn(unique(as.character(factors)),2)
+  pairs <- c()
+  Df <- c()
+  SumsOfSqs <- c()
+  F.Model <- c()
+  R2 <- c()
+  p.value <- c()
+
+
+  for(elem in 1:ncol(co)){
+    if(inherits(x, 'dist')){
+      x1=as.matrix(x)[factors %in% c(as.character(co[1,elem]),as.character(co[2,elem])),
+                      factors %in% c(as.character(co[1,elem]),as.character(co[2,elem]))]
       }
-      return(x)
-    }
+
+    else  (
+      if (sim.function == 'daisy'){
+            x1 = daisy(x[factors %in% c(co[1,elem],co[2,elem]),],metric=sim.method)
+        }
+      else{x1 = vegdist(x[factors %in% c(co[1,elem],co[2,elem]),],method=sim.method)}
+    )
+
+    x2 = data.frame(Fac = factors[factors %in% c(co[1,elem],co[2,elem])])
+
+    ad <- adonis2(x1 ~ Fac, data = x2,
+                 permutations = perm);
+    pairs <- c(pairs,paste(co[1,elem],'vs',co[2,elem]));
+    Df <- c(Df,ad$Df[1])
+	SumsOfSqs <- c(SumsOfSqs,ad$SumOfSqs[1])
+	F.Model <- c(F.Model,ad$F[1]);
+    R2 <- c(R2,ad$R2[1]);
+    p.value <- c(p.value,ad$`Pr(>F)`[1])
   }
-  clz <- colnames(x)
-  sp_in_ranks <- clz %in% c("Species", "species", "sp")
-  if (any(sp_in_ranks)) {
-    sp_id <- which(sp_in_ranks)
-    non_sp_id <- (1:length(clz))[-sp_id]
-  } else {
-    sp_id <- NA
-    non_sp_id <- 1:length(clz)
+  p.adjusted <- p.adjust(p.value,method=p.adjust.m)
+
+  sig = c(rep('',length(p.adjusted)))
+  sig[p.adjusted <= 0.05] <-'.'
+  sig[p.adjusted <= 0.01] <-'*'
+  sig[p.adjusted <= 0.001] <-'**'
+  sig[p.adjusted <= 0.0001] <-'***'
+  pairw.res <- data.frame(pairs,Df,SumsOfSqs,F.Model,R2,p.value,p.adjusted,sig)
+
+  if(!is.null(reduce)){
+    pairw.res <- subset (pairw.res, grepl(reduce,pairs))
+    pairw.res$p.adjusted <- p.adjust(pairw.res$p.value,method=p.adjust.m)
+
+    sig = c(rep('',length(pairw.res$p.adjusted)))
+ 	sig[pairw.res$p.adjusted <= 0.1] <-'.'
+	sig[pairw.res$p.adjusted <= 0.05] <-'*'
+	sig[pairw.res$p.adjusted <= 0.01] <-'**'
+	sig[pairw.res$p.adjusted <= 0.001] <-'***'
+    pairw.res <- data.frame(pairw.res[,1:7],sig)
   }
-  ## Replace higher taxa
-  for (i in non_sp_id) {
-    x <- replace_col(x, col_num = i, unident = unknown_taxon)
-  }
-  ## Replace species names
-  if (!is.na(sp_id)) {
-    x <- replace_col(x, col_num = sp_id, unident = unknown_sp)
-  }
-  ## Function to remove multiple unident strings
-  replace_unidents <-
-    function(tt, strr = "_unidentified", spp = " sp") {
-      ## tt = character vector
-      ## Prepare regex for paterns
-      # Multiple string occurrences
-      multpatt <- paste("(", strr, ")(\\1+)", sep = "")
-      unsp <- paste(strr, spp, sep = "")
-      rez <-
-        gsub(
-          x = tt,
-          pattern = multpatt,
-          replacement = strr,
-          perl = T
-        )
-      ## Replace "_unidetified sp" with " sp"
-      rez <-
-        gsub(
-          x = rez,
-          pattern = unsp,
-          replacement = spp,
-          perl = T
-        )
-      return(rez)
-    }
-  ## Remove multiple unident strings from all tax columns
-  x <- sapply(x, replace_unidents)
-  ## Make species names unique
-  if (make_unique == TRUE) {
-    x[, ncol(x)] <- base::make.unique(names = x[, ncol(x)], sep = ".")
-  }
-  ## Add the OTU classification at the lowest annotated taxonomic rank
-  if (addmaxrank == TRUE) {
-    LowestTaxRank <-
-      as.character(get_max_taxonomic_rank(ps, return_rank_only = TRUE))
-    x <- cbind(x, LowestTaxRank = LowestTaxRank)
-  }
-  ## Add taxa names
-  rownames(x) <- phyloseq::taxa_names(ps)
-  ## Replace tax_table with the modified one
-  phyloseq::tax_table(ps) <- phyloseq::tax_table(as.matrix(x))
-  return(ps)
+  class(pairw.res) <- c("pwadonis", "data.frame")
+  return(pairw.res)
 }

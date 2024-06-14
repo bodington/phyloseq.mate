@@ -18,6 +18,7 @@ Imports:
     phyloseq,
     DECIPHER,
     ape,
+    vegan,
     data.table,
     speedyseq,
     tidyverse
