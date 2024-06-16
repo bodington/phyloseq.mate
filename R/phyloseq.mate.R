@@ -88,7 +88,7 @@ cluster_asv_phyloseq <- function(ps,
 #' @param ps A phyloseq object
 #' @details The sequence table is assigned taxonomy using assignTaxonomy with
 #' @details the greengenes or GTDB training set. (Ranks: D;P;C;O;F;G;S)
-#' @return A phyloseq object with new tax assignments added to the tax table.
+#' @return A phyloseq object with new tax assignments.
 #' @import phyloseq
 #' @importFrom dada2 assignTaxonomy
 #' @examples
@@ -105,7 +105,7 @@ phyloseq_tax_dada2 <- function(ps,
     multithread = TRUE
   )
   rownames(taxid) <- names(rownames(taxid))
-  ps <- merge_phyloseq(ps, tax_table(taxid))
+  tax_table(ps) <- tax_table(taxid)
   return(ps)
 }
 

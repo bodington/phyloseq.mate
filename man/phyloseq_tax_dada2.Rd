@@ -10,7 +10,7 @@ phyloseq_tax_dada2(ps, tax_file)
 \item{ps}{A phyloseq object}
 }
 \value{
-A phyloseq object with new tax assignments added to the tax table.
+A phyloseq object with new tax assignments.
 }
 \description{
 Assigns taxonomy to a phyloseq object using dada2 assignTaxonomy
