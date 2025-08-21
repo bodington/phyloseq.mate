@@ -287,9 +287,9 @@ phyloseq_write_dataset <- function(ps,
     names(f.onames) <- paste0(">", phyloseq::taxa_names(ps))
   }
   #generate asv table formatted for biom generation
-  asv_tab <- .format_asv_table(ps)
-  suppressWarnings(asv_tab <- as.matrix(asv_tab))
-  cb <- as.matrix(cbind(rownames(asv_tab), asv_tab))
+  asv.tab <- .format_asv_table(ps)
+  suppressWarnings(asv.tab <- as.matrix(asv.tab))
+  cb <- as.matrix(cbind(rownames(asv.tab), asv.tab))
   rcb <- as.matrix(rbind(colnames(cb), cb))
   rcb[1, 1] <- "#ASVID"
   rownames(rcb) <- NULL
@@ -311,10 +311,10 @@ phyloseq_write_dataset <- function(ps,
   colnames(rcbs) <- NULL
   #create output string
   if (isTRUE(writeFASTA)) {
-    fa <- print(paste0(filePATH, filePREFIX, "_ASVs.fasta"))
+    fa <- print(paste0(filePATH, filePREFIX, "_asv.fasta"))
   }
-  otb <- print(paste0(filePATH, filePREFIX, "_ASV_table.txt"))
-  ttb <- print(paste0(filePATH, filePREFIX, "_ASV_taxonomy.txt"))
+  otb <- print(paste0(filePATH, filePREFIX, "_asv_table.txt"))
+  ttb <- print(paste0(filePATH, filePREFIX, "_asv_taxonomy.txt"))
   stb <- print(paste0(filePATH, filePREFIX, "_sample_data.txt"))
   #write output
   #ASV fasta
@@ -404,9 +404,9 @@ phyloseq_write_dataset_biom <- function(ps,
   )
   #create output string
   if (isTRUE(writeFASTA)) {
-    fa <- print(paste0(filePATH, filePREFIX, "_ASVs.fasta"))
+    fa <- print(paste0(filePATH, filePREFIX, "_asv.fasta"))
   }
-  bo <- print(paste0(filePATH, filePREFIX, "_ASV_table.biom"))
+  bo <- print(paste0(filePATH, filePREFIX, "_asv_table.biom"))
   #write output
   if (isTRUE(writeFASTA)) {
     write.table(
@@ -432,11 +432,11 @@ phyloseq_write_dataset_biom <- function(ps,
 .format_asv_table <- function(ps) {
   if (as.logical(class(phyloseq::otu_table(ps))[1] == "otu_table") &&
       as.logical(taxa_are_rows(phyloseq::otu_table(ps)) == TRUE)) {
-    asv_tab <- as.matrix(phyloseq::otu_table(ps))
+    asv.tab <- as.matrix(phyloseq::otu_table(ps))
   } else {
-    asv_tab <- as.matrix(t(phyloseq::otu_table(ps)))
+    asv.tab <- as.matrix(t(phyloseq::otu_table(ps)))
   }
-  return(asv_tab)
+  return(asv.tab)
 }
 
 #'@title Pairwise multilevel comparison using adonis
