@@ -31,11 +31,11 @@ cluster_asv_dada2 <- function(seqtab,
     type = "clusters",
     processors = nproc
   )
-  clusters <- clusters %>%
+  clusters <- clusters |>
     add_column(sequence = asv_sequences)
-  seqtab_clustered <- seqtab %>%
-    t %>%
-    rowsum(clusters$cluster) %>%
+  seqtab_clustered <- seqtab |>
+    t |>
+    rowsum(clusters$cluster) |>
     t
   return(seqtab_clustered)
 }
@@ -154,30 +154,33 @@ phyloseq_tax_decipher <- function(ps,
   return(ps)
 }
 
-#' Cleanly merge (using sequence as ASV name) phyloseq objects in a list
+#' Cleanly merge (using sequence hash as ASV name) phyloseq objects
 #'
 #' @description
-#' Assigns taxonomy to a phyloseq object using decipher, and returns the tax
-#' table
+#' Merges phyloseq objects using sequence hashes to cleanly merge ASVs.
 #'
-#' @param ps_list A list of phyloseq objects
-#' @details A list containing only phyloseq objects can be cleanly merged,
+#'
+#' @param ps_list A vector of phyloseq objects
+#' @details A list containing phyloseq objects can be cleanly merged,
 #' @details including identical ASVs where the ASV name differs in the objects.
-#' @details ASV merging is done by sequence
+#' @details ASV merging is done by sequence hash
 #' @return A phyloseq object with all objects in the list merged
 #' @import phyloseq
 #' @examples
 #' \dontrun{
-#' merged_phyloseq <- phyloseq_clean_merge(list_of_phyloseq_objects)
+#' merged_phyloseq <- phyloseq_clean_merge(vector_of_phyloseq_objects)
 #' }
 #' @export
-phyloseq_clean_merge <- function(phyloseq_list) {
+phyloseq_clean_merge <- function(phyloseq_names) {
+  phyloseq_list <- lapply(phyloseq_names, get)
+  phyloseq_list <- setnames(phyloseq_list, phyloseq_names)
   do.call(
     merge_phyloseq,
     lapply(
       phyloseq_list,
       function(x) {
-        taxa_names(x) <- as.character(refseq(x), use.names = FALSE)
+        taxa_names(x) <- sapply(refseq(x), digest, algo='md5', serialize = FALSE)
+        #taxa_names(x) <- as.character(refseq(x), use.names = FALSE)
         return(x)
       }
     )
@@ -194,7 +197,6 @@ phyloseq_clean_merge <- function(phyloseq_list) {
 #' @details The tree is rooted by the longest terminal branch.
 #' @return The same phyloseq object with a rooted tree
 #' @importFrom ape Ntip
-#' @importFrom magrittr %>%
 #' @importFrom data.table data.table
 #' @examples
 #' \dontrun{
@@ -208,7 +210,7 @@ phyloseq_root_tree <- function(ps) {
     cbind(
       data.table(tree.unrooted$edge),
       data.table(length = tree.unrooted$edge.length)
-    )[1:Ntip(tree.unrooted)] %>%
+    )[1:Ntip(tree.unrooted)] |>
     cbind(data.table(id = tree.unrooted$tip.label))
   # Take the longest terminal branch as outgroup
   new.outgroup <- treeDT[which.max(length)]$id
