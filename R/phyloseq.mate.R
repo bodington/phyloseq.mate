@@ -173,7 +173,7 @@ phyloseq_tax_decipher <- function(ps,
 #' @export
 phyloseq_clean_merge <- function(phyloseq_names) {
   phyloseq_list <- lapply(phyloseq_names, get)
-  phyloseq_list <- setnames(phyloseq_list, phyloseq_names)
+  phyloseq_list <- setNames(phyloseq_list, phyloseq_names)
   do.call(
     merge_phyloseq,
     lapply(
