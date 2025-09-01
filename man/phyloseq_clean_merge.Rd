@@ -2,29 +2,28 @@
 % Please edit documentation in R/phyloseq.mate.R
 \name{phyloseq_clean_merge}
 \alias{phyloseq_clean_merge}
-\title{Cleanly merge (using sequence as ASV name) phyloseq objects in a list}
+\title{Cleanly merge phyloseq objects with different ASV names}
 \usage{
-phyloseq_clean_merge(phyloseq_list)
+phyloseq_clean_merge(phyloseq_names)
 }
 \arguments{
-\item{ps_list}{A list of phyloseq objects}
+\item{ps_list}{A vector of phyloseq objects}
 }
 \value{
 A phyloseq object with all objects in the list merged
 }
 \description{
-Assigns taxonomy to a phyloseq object using decipher, and returns the tax
-table
+Merges phyloseq objects using sequence hashes to cleanly merge ASVs.
 }
 \details{
-A list containing only phyloseq objects can be cleanly merged,
+Phyloseq objects can be cleanly merged, including identical ASVs
 
-including identical ASVs where the ASV name differs in the objects.
+where the ASV name differs in the objects.
 
-ASV merging is done by sequence
+ASV merging is done by sequence hash
 }
 \examples{
 \dontrun{
-merged_phyloseq <- phyloseq_clean_merge(list_of_phyloseq_objects)
+merged_phyloseq <- phyloseq_clean_merge(vector_of_phyloseq_objects)
 }
 }

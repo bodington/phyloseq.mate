@@ -34,9 +34,9 @@ cluster_asv_dada2 <- function(seqtab,
   clusters <- clusters |>
     add_column(sequence = asv_sequences)
   seqtab_clustered <- seqtab |>
-    t |>
+    t() |>
     rowsum(clusters$cluster) |>
-    t
+    t()
   return(seqtab_clustered)
 }
 
@@ -154,15 +154,15 @@ phyloseq_tax_decipher <- function(ps,
   return(ps)
 }
 
-#' Cleanly merge (using sequence hash as ASV name) phyloseq objects
+#' Cleanly merge phyloseq objects with different ASV names
 #'
 #' @description
 #' Merges phyloseq objects using sequence hashes to cleanly merge ASVs.
 #'
 #'
 #' @param ps_list A vector of phyloseq objects
-#' @details A list containing phyloseq objects can be cleanly merged,
-#' @details including identical ASVs where the ASV name differs in the objects.
+#' @details Phyloseq objects can be cleanly merged, including identical ASVs
+#' @details where the ASV name differs in the objects.
 #' @details ASV merging is done by sequence hash
 #' @return A phyloseq object with all objects in the list merged
 #' @import phyloseq
@@ -179,8 +179,7 @@ phyloseq_clean_merge <- function(phyloseq_names) {
     lapply(
       phyloseq_list,
       function(x) {
-        taxa_names(x) <- sapply(refseq(x), digest, algo='md5', serialize = FALSE)
-        #taxa_names(x) <- as.character(refseq(x), use.names = FALSE)
+        taxa_names(x) <- sapply(unname(as.character(refseq(x))), digest, algo='md5', serialize = FALSE)
         return(x)
       }
     )
